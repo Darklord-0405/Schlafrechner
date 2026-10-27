@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e0d1c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Schlafrechner">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+<title>Schlafzyklus-Rechner</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: eine Spalte wie ein Schlaflabor-Protokoll – Eingabe, Ergebnis-Zeitstrahl, Hypnogramm, Evidenz */
+:root{
+  --bg:#f3f2f8; --surface:#ffffff; --fg:#1c1b33; --muted:#5d5b7a; --line:#dcdaea;
+  --accent:#4a3fc4; --accent-soft:#e7e4ff; --moon:#b7791f; --good:#1f7a55; --good-soft:#dcf3e8; --warn:#9a4b12;
+  --rem:#c2410c; --n1:#9ca3c9; --n2:#6366c4; --n3:#2a2470;
+  --display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body:"Atkinson Hyperlegible", system-ui, -apple-system, sans-serif;
+  --mono:"JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e0d1c; --surface:#17162b; --fg:#ebeaf7; --muted:#a3a1c2; --line:#2c2a4a;
+  --accent:#9d95ff; --accent-soft:#24204a; --moon:#f3c969; --good:#5fd6a0; --good-soft:#123528; --warn:#f0a868;
+  --rem:#fb923c; --n1:#55597f; --n2:#7f7fe0; --n3:#c4c0ff; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e0d1c; --surface:#17162b; --fg:#ebeaf7; --muted:#a3a1c2; --line:#2c2a4a;
+  --accent:#9d95ff; --accent-soft:#24204a; --moon:#f3c969; --good:#5fd6a0; --good-soft:#123528; --warn:#f0a868;
+  --rem:#fb923c; --n1:#55597f; --n2:#7f7fe0; --n3:#c4c0ff; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.55;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 56px}
+.wrap{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:28px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;line-height:1.15}
+h1{font-size:clamp(2rem,6vw,2.9rem);font-weight:700;letter-spacing:-.02em}
+h2{font-size:1.35rem;font-weight:700}
+h3{font-size:1.02rem;font-weight:700}
+p{margin:0}
+.eyebrow{font-family:var(--mono);font-size:.74rem;letter-spacing:.12em;text-transform:uppercase;color:var(--moon)}
+.lede{color:var(--muted);max-width:62ch;margin-top:10px}
+header{display:flex;flex-direction:column;gap:6px}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:18px}
+.mode{display:grid;grid-template-columns:1fr 1fr;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:4px;gap:4px}
+.mode button{font:700 .95rem var(--body);border:0;border-radius:7px;padding:10px 8px;background:transparent;color:var(--muted);cursor:pointer}
+.mode button[aria-pressed="true"]{background:var(--accent);color:var(--surface)}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}
+label{display:flex;flex-direction:column;gap:6px;font-size:.88rem;font-weight:700}
+label small{font-weight:400;color:var(--muted);font-size:.8rem}
+input[type=time],select{font:500 1.05rem var(--mono);padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg);width:100%}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.rangeval{font-family:var(--mono);color:var(--accent);font-weight:700}
+.row{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.nowbtn{align-self:flex-start;font:700 .85rem var(--body);background:var(--accent-soft);color:var(--accent);border:0;border-radius:999px;padding:7px 14px;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.results{display:flex;flex-direction:column;gap:10px}
+.res-head{display:flex;flex-direction:column;gap:4px}
+.res-head p{color:var(--muted);font-size:.92rem}
+.opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.opt{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:4px;cursor:pointer;text-align:left;font:inherit;color:inherit}
+.opt:hover{border-color:var(--accent)}
+.opt.sel{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent) inset}
+.opt .t{font:700 1.7rem var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.opt .meta{font-size:.82rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.pill{align-self:flex-start;font-size:.7rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:3px 8px}
+.pill.good{background:var(--good-soft);color:var(--good)}
+.pill.low{background:var(--accent-soft);color:var(--warn)}
+.pill.hi{background:var(--accent-soft);color:var(--muted)}
+.spread{font-size:.8rem;color:var(--muted);font-family:var(--mono)}
+
+.hypno{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:10px}
+.hypno .scroll{overflow-x:auto}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:.8rem;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:12px;height:12px;border-radius:3px;display:inline-block}
+
+.facts{display:flex;flex-direction:column;gap:16px}
+.fact{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;padding-bottom:16px;border-bottom:1px solid var(--line)}
+.fact:last-child{border-bottom:0;padding-bottom:0}
+.fact .num{font:700 1.25rem var(--mono);color:var(--accent);grid-row:span 2;min-width:5.5ch}
+.fact p{color:var(--muted);font-size:.94rem;max-width:62ch}
+.fact a{color:var(--accent)}
+.appbar{margin-top:8px;border-top:1px solid var(--line);padding-top:14px;display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px 16px;font-size:.8rem;color:var(--muted)}
+.appbar .ver{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.note{font-size:.84rem;color:var(--muted);border-top:1px solid var(--line);padding-top:16px}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.9rem}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line)}
+th{font-size:.75rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+td.m{font-family:var(--mono);font-variant-numeric:tabular-nums}
+@media (prefers-reduced-motion:no-preference){.opt{transition:border-color .15s}}
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Schlafzyklen · NREM ↔ REM</span>
+    <h1>Schlafzyklus-Rechner</h1>
+    <p class="lede">Berechnet Schlafens- und Weckzeiten so, dass du möglichst am Ende eines Schlafzyklus aufwachst, in leichtem Schlaf statt im Tiefschlaf. Grundlage sind aktuelle Studien zu Zykluslänge, Schlafträgheit und empfohlener Schlafdauer.</p>
+  </header>
+
+  <section class="panel" aria-label="Eingaben">
+    <div class="mode" role="group" aria-label="Was möchtest du berechnen?">
+      <button id="m-wake" aria-pressed="true">Ich muss aufstehen um …</button>
+      <button id="m-bed" aria-pressed="false">Ich gehe schlafen um …</button>
+    </div>
+    <div class="fields">
+      <label for="time"><span id="timeLabel">Weckzeit</span>
+        <input type="time" id="time" value="06:30">
+      </label>
+      <label for="age">Altersgruppe
+        <select id="age">
+          <option value="teen">13–17 Jahre (8–10 h)</option>
+          <option value="adult" selected>18–60 Jahre (7–9 h)</option>
+          <option value="adult61">61–64 Jahre (7–9 h)</option>
+          <option value="senior">65+ Jahre (7–8 h)</option>
+        </select>
+      </label>
+    </div>
+    <div class="fields">
+      <label for="lat"><span class="row">Einschlafdauer <span class="rangeval" id="latVal">15 min</span></span>
+        <input type="range" id="lat" min="0" max="45" step="5" value="15">
+        <small>Typisch 10–20 Minuten bei gesunden Schläfern.</small>
+      </label>
+      <label for="cyc"><span class="row">Zykluslänge <span class="rangeval" id="cycVal">96 min</span></span>
+        <input type="range" id="cyc" min="80" max="115" step="1" value="96">
+        <small>Median laut Basler Laborstudie (2024): 96 min. Kennst du deine eigene, stell sie hier ein.</small>
+      </label>
+    </div>
+    <button class="nowbtn" id="now" hidden>Jetzt einsetzen</button>
+  </section>
+
+  <section class="results" aria-live="polite">
+    <div class="res-head">
+      <h2 id="resTitle">Geh zu einer dieser Zeiten ins Bett</h2>
+      <p id="resSub"></p>
+    </div>
+    <div class="opts" id="opts"></div>
+  </section>
+
+  <section class="hypno" aria-label="Hypnogramm">
+    <h3 id="hypTitle">So verläuft die Nacht</h3>
+    <div class="scroll"><svg id="svg" role="img" aria-label="Vereinfachtes Hypnogramm der gewählten Nacht"></svg></div>
+    <div class="legend">
+      <span><i style="background:var(--n1)"></i>Leichtschlaf N1</span>
+      <span><i style="background:var(--n2)"></i>N2</span>
+      <span><i style="background:var(--n3)"></i>Tiefschlaf N3</span>
+      <span><i style="background:var(--rem)"></i>REM</span>
+      <span><i style="background:var(--moon)"></i>Weckzeitpunkt</span>
+    </div>
+    <p class="note" style="border:0;padding:0">Schematisch: In den ersten Zyklen dominiert Tiefschlaf, gegen Morgen wird der REM-Anteil länger. Echte Nächte schwanken.</p>
+  </section>
+
+  <section class="panel" aria-label="Wissenschaftliche Grundlage">
+    <h2>Was die Forschung sagt</h2>
+    <div class="facts">
+      <div class="fact"><span class="num">96 min</span><h3>Zyklen sind länger und variabler als „90 Minuten“</h3>
+        <p>Eine Auswertung von 6.064 im Labor aufgezeichneten Zyklen bei 369 Personen ergab einen Median von 96 Minuten, mit großer Streuung zwischen Menschen. Der erste Zyklus ist meist kürzer, Alter, Geschlecht und Schlafdruck verschieben die Länge. <a href="https://pubmed.ncbi.nlm.nih.gov/37914631/" target="_blank" rel="noopener">Cajochen et al., Sleep Health 2024</a></p></div>
+      <div class="fact"><span class="num">N3</span><h3>Aufwachen aus Tiefschlaf macht am meisten benommen</h3>
+        <p>Schlafträgheit ist nach dem Wecken aus Tiefschlaf am stärksten. Aus N2 oder REM ist sie milder. Schlafmangel verstärkt die Benommenheit zusätzlich. Deshalb zielt der Rechner auf Zyklusenden. <a href="https://www.dovepress.com/sleep-inertia-current-insights-peer-reviewed-fulltext-article-NSS" target="_blank" rel="noopener">Hilditch &amp; McHill, Nat Sci Sleep 2019</a></p></div>
+      <div class="fact"><span class="num">≥ 7 h</span><h3>Genug Schlaf ist wichtiger als die perfekte Minute</h3>
+        <p>Die US-Fachgesellschaften AASM und SRS empfehlen Erwachsenen regelmäßig mindestens 7 Stunden, Jugendlichen 8–10 Stunden. Fünf Zyklen mit 96 Minuten ergeben rund 8 Stunden. Vier Zyklen sind für die meisten Erwachsenen zu wenig. <a href="https://aasm.org/about/newsroom/" target="_blank" rel="noopener">AASM</a></p></div>
+      <div class="fact"><span class="num">± 1 h</span><h3>Regelmäßigkeit schlägt Dauer</h3>
+        <p>In einer UK-Biobank-Studie mit rund 61.000 Menschen sagte die Regelmäßigkeit der Schlafzeiten das Sterberisiko besser voraus als die Schlafdauer. Die regelmäßigsten 20 % hielten ihre Zeiten innerhalb etwa einer Stunde. Wähle also eine Zeit und bleib auch am Wochenende dabei. <a href="https://pubmed.ncbi.nlm.nih.gov/37738616/" target="_blank" rel="noopener">Windred et al., SLEEP 2024</a></p></div>
+    </div>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>Alter</th><th>Empfohlene Dauer</th><th>Passende Zyklen (à 96 min)</th></tr></thead>
+        <tbody>
+          <tr><td>13–17</td><td class="m">8–10 h</td><td class="m">5–6</td></tr>
+          <tr><td>18–60</td><td class="m">7–9 h</td><td class="m">5</td></tr>
+          <tr><td>61–64</td><td class="m">7–9 h</td><td class="m">5</td></tr>
+          <tr><td>65+</td><td class="m">7–8 h</td><td class="m">5</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">Der Rechner ist eine Planungshilfe und keine medizinische Beratung. Weil die Zykluslänge von Nacht zu Nacht schwankt, zeigt jede Option eine Unsicherheitsspanne. Wer trotz ausreichender Schlafzeit dauerhaft unausgeschlafen ist, sollte das ärztlich abklären lassen, zum Beispiel auf Schlafapnoe.</p>
+  </section>
+
+  <footer class="appbar">
+    <span id="copy">© 2026 Benedikt Diel</span>
+    <span class="ver" id="ver">Version 1.1.0</span>
+  </footer>
+</div>
+
+<script>
+const APP_VERSION = "1.1.0";
+const APP_AUTHOR = "Benedikt Diel";
+const APP_START_YEAR = 2026;
+(function(){const y=new Date().getFullYear();
+  document.getElementById("copy").textContent="© "+(y>APP_START_YEAR?APP_START_YEAR+"–"+y:APP_START_YEAR)+" "+APP_AUTHOR;
+  document.getElementById("ver").textContent="Version "+APP_VERSION;})();
+const AGE={teen:[8,10],adult:[7,9],adult61:[7,9],senior:[7,8]};
+let mode="wake", selIdx=null;
+const $=id=>document.getElementById(id);
+const pad=n=>String(n).padStart(2,"0");
+const fmt=m=>{m=((Math.round(m)%1440)+1440)%1440;return pad(Math.floor(m/60))+":"+pad(m%60)};
+const dur=m=>{const h=Math.floor(m/60),r=Math.round(m%60);return h+" h "+(r?pad(r)+" min":"")};
+const parse=v=>{const[a,b]=v.split(":").map(Number);return a*60+b};
+
+function load(){try{const s=JSON.parse(localStorage.getItem("schlafrechner")||"{}");
+  if(s.age)$("age").value=s.age; if(s.lat!=null)$("lat").value=s.lat; if(s.cyc)$("cyc").value=s.cyc;}catch(e){}}
+function save(){try{localStorage.setItem("schlafrechner",JSON.stringify({age:$("age").value,lat:$("lat").value,cyc:$("cyc").value}))}catch(e){}}
+
+function setMode(m){mode=m;selIdx=null;
+  $("m-wake").setAttribute("aria-pressed",m==="wake");$("m-bed").setAttribute("aria-pressed",m==="bed");
+  $("timeLabel").textContent=m==="wake"?"Weckzeit":"Schlafenszeit";
+  $("now").hidden=m==="wake";
+  if(m==="bed"){const d=new Date();$("time").value=pad(d.getHours())+":"+pad(d.getMinutes())}
+  else $("time").value="06:30";
+  calc();}
+
+function calc(){
+  const t=parse($("time").value||"06:30"), lat=+$("lat").value, cyc=+$("cyc").value, [lo,hi]=AGE[$("age").value];
+  $("latVal").textContent=lat+" min"; $("cycVal").textContent=cyc+" min"; save();
+  const opts=[];
+  for(let n=6;n>=3;n--){
+    const sleep=n*cyc, spread=Math.round(n*8); // ca. ±8 min Streuung pro Zyklus
+    const h=sleep/60, status=h<lo-0.05?"low":h>hi+0.25?"hi":"good";
+    const time=mode==="wake"? t-lat-sleep : t+lat+sleep;
+    opts.push({n,sleep,spread,status,time});
+  }
+  if(mode==="bed")opts.reverse();
+  if(selIdx==null){selIdx=opts.findIndex(o=>o.status==="good");if(selIdx<0)selIdx=0}
+  $("resTitle").textContent=mode==="wake"?"Geh zu einer dieser Zeiten ins Bett":"Stell den Wecker auf eine dieser Zeiten";
+  $("resSub").textContent=mode==="wake"
+    ? `Für Aufstehen um ${fmt(t)}, inklusive ${lat} min Einschlafzeit. Grün markiert die für deine Altersgruppe empfohlene Dauer (${lo}–${hi} h).`
+    : `Wenn du um ${fmt(t)} ins Bett gehst und nach etwa ${lat} min einschläfst. Grün markiert die empfohlene Dauer (${lo}–${hi} h).`;
+  const lbl={good:"Empfohlen",low:"Zu kurz",hi:"Lang"};
+  $("opts").innerHTML=opts.map((o,i)=>`<button class="opt${i===selIdx?" sel":""}" data-i="${i}" aria-pressed="${i===selIdx}">
+    <span class="pill ${o.status}">${lbl[o.status]}</span>
+    <span class="t">${fmt(o.time)}</span>
+    <span class="meta">${o.n} Zyklen · ${dur(o.sleep)} Schlaf</span>
+    <span class="spread">Spanne ${fmt(o.time-o.spread)}–${fmt(o.time+o.spread)}</span></button>`).join("");
+  document.querySelectorAll(".opt").forEach(b=>b.onclick=()=>{selIdx=+b.dataset.i;calc()});
+  const o=opts[selIdx];
+  const bed=mode==="wake"?o.time:t, wake=mode==="wake"?t:o.time;
+  draw(bed,lat,o.n,cyc,wake);
+}
+
+function stages(n,cyc){ // vereinfachtes Hypnogramm: [stufe, minuten]; 0=Wach 1=REM 2=N1 3=N2 4=N3
+  const seg=[];
+  for(let i=0;i<n;i++){
+    const f=n>1?i/(n-1):0;
+    const rem=Math.round(cyc*(0.08+0.22*f)), n3=Math.round(cyc*(0.32*(1-f)+0.02)), n1=Math.round(cyc*0.06);
+    const n2=cyc-rem-n3-n1;
+    seg.push([2,n1],[3,Math.round(n2*0.6)],[4,n3],[3,n2-Math.round(n2*0.6)],[1,rem]);
+  }
+  return seg;
+}
+function draw(bed,lat,n,cyc,wake){
+  const total=lat+n*cyc+20, W=Math.max(680,total*0.95), H=210, L=58, R=16, T=14, B=34;
+  const x=m=>L+(m/total)*(W-L-R), lvY=l=>T+l*((H-T-B)/4);
+  const svg=$("svg"); svg.setAttribute("viewBox",`0 0 ${W} ${H}`); svg.setAttribute("width",W); svg.setAttribute("height",H);
+  const names=["Wach","REM","N1","N2","N3"], col=["var(--muted)","var(--rem)","var(--n1)","var(--n2)","var(--n3)"];
+  let s="";
+  names.forEach((nm,i)=>{s+=`<line x1="${L}" x2="${W-R}" y1="${lvY(i)}" y2="${lvY(i)}" stroke="var(--line)" stroke-width="1"/>
+    <text x="${L-8}" y="${lvY(i)+4}" text-anchor="end" font-size="11" fill="var(--muted)" font-family="JetBrains Mono, monospace">${nm}</text>`});
+  for(let i=0;i<=n;i++){const xm=x(lat+i*cyc);s+=`<line x1="${xm}" x2="${xm}" y1="${T}" y2="${H-B}" stroke="var(--line)" stroke-dasharray="3 4"/>`;
+    if(i<n)s+=`<text x="${x(lat+i*cyc+cyc/2)}" y="${H-B+14}" text-anchor="middle" font-size="10" fill="var(--muted)" font-family="JetBrains Mono, monospace">Zyklus ${i+1}</text>`}
+  let t=0, path=`M${x(0)},${lvY(0)} L${x(lat)},${lvY(0)}`; t=lat;
+  const bars=[];
+  stages(n,cyc).forEach(([lv,m])=>{path+=` L${x(t)},${lvY(lv)} L${x(t+m)},${lvY(lv)}`;bars.push([t,m,lv]);t+=m});
+  path+=` L${x(t)},${lvY(0)} L${x(total)},${lvY(0)}`;
+  bars.forEach(([a,m,lv])=>{s+=`<rect x="${x(a)}" y="${lvY(lv)-4}" width="${Math.max(1,x(a+m)-x(a))}" height="8" rx="2" fill="${col[lv]}"/>`});
+  s+=`<path d="${path}" fill="none" stroke="var(--fg)" stroke-opacity=".35" stroke-width="1.2"/>`;
+  const wx=x(lat+n*cyc);
+  s+=`<line x1="${wx}" x2="${wx}" y1="${T-4}" y2="${H-B}" stroke="var(--moon)" stroke-width="2.5"/>
+     <circle cx="${wx}" cy="${lvY(0)}" r="5" fill="var(--moon)"/>`;
+  s+=`<text x="${x(0)}" y="${H-6}" font-size="11" fill="var(--fg)" font-family="JetBrains Mono, monospace">${fmt(bed)} Bett</text>
+      <text x="${wx}" y="${H-6}" text-anchor="middle" font-size="11" font-weight="700" fill="var(--moon)" font-family="JetBrains Mono, monospace">${fmt(wake)} Wecker</text>`;
+  svg.innerHTML=s;
+  $("hypTitle").textContent=`So verläuft die Nacht: ${n} Zyklen, ${fmt(bed)} bis ${fmt(wake)}`;
+}
+
+$("m-wake").onclick=()=>setMode("wake"); $("m-bed").onclick=()=>setMode("bed");
+$("now").onclick=()=>{const d=new Date();$("time").value=pad(d.getHours())+":"+pad(d.getMinutes());selIdx=null;calc()};
+["time","age","lat","cyc"].forEach(id=>$(id).addEventListener("input",()=>{if(id!=="lat"&&id!=="cyc")selIdx=null;calc()}));
+load(); calc();
+</script>
+
+<script>
+if ("serviceWorker" in navigator && location.protocol === "https:") {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+</script>
+</body>
+</html>
